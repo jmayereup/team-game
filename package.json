@@ -1,0 +1,18 @@
+{
+  "name": "team-game",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/input.css -o ./dist/styles.css --minify",
+    "watch:css": "tailwindcss -i ./src/input.css -o ./dist/styles.css --watch",
+    "dev": "concurrently \"npm run watch:css\" \"live-server --open=./ --port=8080\""
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "live-server": "^1.2.2",
+    "tailwindcss": "^3.4.7"
+  },
+  "dependencies": {
+    "pocketbase": "^0.26.2"
+  }
+}

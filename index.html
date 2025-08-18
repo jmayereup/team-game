@@ -3,39 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classroom Team Game</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Team Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- PocketBase client (UMD) -->
-    <script src="https://unpkg.com/pocketbase@0.11.0/dist/pocketbase.umd.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0f4f8; /* Light blue-gray background */
-        }
-        .card {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .modal-backdrop {
-            background-color: rgba(0,0,0,0.6);
-        }
-        .disabled-card {
-            background-color: #cbd5e1; /* Gray-400 */
-            cursor: not-allowed;
-            opacity: 0.7;
-        }
-        .disabled-card:hover {
-            transform: none;
-            box-shadow: none;
-        }
-        .team-btn {
-            transition: background-color 0.2s;
-        }
-    </style>
+    <!-- Compiled Tailwind CSS (built with tailwindcss CLI) -->
+    <link rel="stylesheet" href="./dist/styles.css">
+    <!-- PocketBase client (UMD) - using local copy from node_modules -->
+    <script src="./node_modules/pocketbase/dist/pocketbase.umd.js"></script>
 </head>
 <body class="text-gray-800">
 
@@ -58,8 +31,8 @@
         <div id="game-screen" class="hidden">
             <!-- Header -->
             <header class="text-center mb-6">
-                <h1 class="text-4xl md:text-5xl font-bold text-gray-700">Classroom Team Game</h1>
-                <p class="text-lg text-gray-500 mt-2">Practice with Auxiliary Verbs!</p>
+                <h1 class="text-4xl md:text-5xl font-bold text-gray-700">Team Game</h1>
+                <p class="text-lg text-gray-500 mt-2">Remember: Each player can only speak once per round.</p>
             </header>
 
             <!-- Scoreboard -->
@@ -91,7 +64,7 @@
     <div id="question-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-8 text-center relative transform transition-all duration-300 scale-95 opacity-0">
             <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0-0 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -717,7 +690,7 @@
 
             // --- INITIALIZE ---
             loadFullQuestionBank();
-        });
-    </script>
-</body>
-</html>
+         });
+     </script>
+ </body>
+ </html>
