@@ -114,12 +114,11 @@
             <h3 class="text-2xl font-bold mb-4 text-center">Edit Question Bank</h3>
             <p class="text-center text-gray-500 mb-6">Add one question and its answer on each line, separated by a pipe character `|`.</p>
             <div class="flex gap-4 mb-4">
-                <input id="pocketbase-url" class="w-1/2 p-2 border border-gray-300 rounded-lg" placeholder="PocketBase URL (e.g. https://example.com)" value="https://blog.teacherjake.com" />
-                <input id="pocketbase-record-id" class="w-1/2 p-2 border border-gray-300 rounded-lg" placeholder="Record ID (or collection record id)" />
-            </div>
-            <div class="flex gap-4 items-center mb-2">
                 <button id="load-pocketbase-list-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700">Load list</button>
-                <button id="fetch-pocketbase-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700">Fetch selected / by ID</button>
+                <div id="pb-auth-controls" class="flex items-center gap-2">
+                    <button id="pb-login-btn" class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm">Login (Google)</button>
+                    <button id="pb-logout-btn" class="px-3 py-1 bg-gray-400 text-white rounded-md text-sm hidden">Logout</button>
+                </div>
                 <div id="pb-status" class="text-sm text-gray-500"></div>
             </div>
 
@@ -128,10 +127,14 @@
                     <option value="">— Select a question bank —</option>
                 </select>
             </div>
+            <div class="mb-4">
+                <input id="pb-bank-title" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Bank title (for save to PocketBase)" />
+            </div>
             <textarea id="questions-textarea" class="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400" placeholder="Example: What color is the sky? | Blue"></textarea>
             <div class="flex justify-end gap-4 mt-6">
                  <button id="cancel-edit-btn" class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600">Cancel</button>
                  <button id="save-questions-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700">Save and Restart</button>
+                 <button id="save-to-pb-btn" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Save to PocketBase</button>
             </div>
         </div>
     </div>
@@ -319,15 +322,10 @@
             }
 
             /**
-             * Loads the full question bank from localStorage or uses defaults.
+             * Loads the full question bank into memory. This intentionally does NOT use localStorage.
              */
             function loadFullQuestionBank() {
-                const storedQuestions = localStorage.getItem('classroomGameQuestions');
-                if (storedQuestions) {
-                    gameState.fullQuestionBank = JSON.parse(storedQuestions);
-                } else {
-                    gameState.fullQuestionBank = [...defaultQuestions];
-                }
+                gameState.fullQuestionBank = [...defaultQuestions];
             }
 
             /**
@@ -455,7 +453,6 @@
 
                 if (newQuestions.length > 0) {
                     gameState.fullQuestionBank = newQuestions;
-                    localStorage.setItem('classroomGameQuestions', JSON.stringify(newQuestions));
                     startNewRound();
                     closeEditModal();
                 } else {
@@ -490,12 +487,98 @@
             cancelEditBtn.addEventListener('click', closeEditModal);
 
             // --- POCKETBASE INTEGRATION ---
-            const fetchPbBtn = document.getElementById('fetch-pocketbase-btn');
-            const pbUrlInput = document.getElementById('pocketbase-url');
-            const pbRecordIdInput = document.getElementById('pocketbase-record-id');
             const pbStatus = document.getElementById('pb-status');
             const loadListBtn = document.getElementById('load-pocketbase-list-btn');
             const pbRecordSelect = document.getElementById('pb-record-select');
+            const POCKETBASE_URL = 'https://blog.teacherjake.com';
+            const pbLoginBtn = document.getElementById('pb-login-btn');
+            const pbLogoutBtn = document.getElementById('pb-logout-btn');
+            const pbBankTitle = document.getElementById('pb-bank-title');
+            const saveToPbBtn = document.getElementById('save-to-pb-btn');
+
+            // PocketBase client instance
+            const pb = new PocketBase(POCKETBASE_URL);
+
+            function updateAuthUI() {
+                if (pb.authStore.isValid) {
+                    pbLoginBtn.classList.add('hidden');
+                    pbLogoutBtn.classList.remove('hidden');
+                    pbStatus.textContent = `Logged in as ${pb.authStore.record?.email || pb.authStore.record?.id}`;
+                } else {
+                    pbLoginBtn.classList.remove('hidden');
+                    pbLogoutBtn.classList.add('hidden');
+                    pbStatus.textContent = '';
+                }
+            }
+
+            // Try to restore authStore from storage automatically
+            pb.authStore.onChange(() => updateAuthUI());
+            updateAuthUI();
+
+            // OAuth2 login (Google) — will redirect to PocketBase oauth endpoint
+            pbLoginBtn.addEventListener('click', async () => {
+                try {
+                    // This uses redirect flow — ensure redirect URL is configured in PocketBase
+                    await pb.collection('users').authWithOAuth2({ provider: 'google' });
+                } catch (err) {
+                    console.error(err);
+                    pbStatus.textContent = 'Login failed: ' + (err.message || err);
+                }
+            });
+
+            pbLogoutBtn.addEventListener('click', () => {
+                pb.authStore.clear();
+                updateAuthUI();
+            });
+
+            /**
+             * Save current textarea as a teamGames record in PocketBase.
+             * If a record is selected in the dropdown, update it; otherwise create a new record.
+             */
+            async function saveToPocketBase() {
+                const title = pbBankTitle.value.trim() || 'Untitled';
+                const lines = questionsTextarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                const parsed = lines.map(line => {
+                    const parts = line.split('|');
+                    if (parts.length >= 2) return { question: parts[0].trim(), answer: parts.slice(1).join('|').trim() };
+                    return null;
+                }).filter(x => x !== null);
+
+                if (parsed.length === 0) {
+                    pbStatus.textContent = 'No valid questions to save.';
+                    return;
+                }
+
+                try {
+                    // Build payload. Store questionbank as JSON string (array of objects)
+                    const payload = { title, questionbank: JSON.stringify(parsed) };
+
+                    const collection = 'teamGames';
+                    const selectedId = pbRecordSelect.value;
+
+                    let res;
+                    if (selectedId) {
+                        // Update
+                        res = await pb.collection(collection).update(selectedId, payload);
+                        pbStatus.textContent = 'Updated existing question bank.';
+                    } else {
+                        // Create
+                        res = await pb.collection(collection).create(payload);
+                        pbStatus.textContent = 'Created new question bank.';
+                    }
+
+                    // Refresh list and select the saved record
+                    await loadPocketBaseList();
+                    if (res && res.id) {
+                        pbRecordSelect.value = res.id;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    pbStatus.textContent = 'Error saving to PocketBase: ' + (err.message || err);
+                }
+            }
+
+            saveToPbBtn.addEventListener('click', saveToPocketBase);
 
             /**
              * Tries to fetch a PocketBase record and populate the questions textarea.
@@ -503,12 +586,11 @@
              * - a string with lines 'Question | Answer' per line
              * - a JSON array of objects [{ question, answer }, ...]
              */
-            async function fetchPocketBaseRecord() {
-                const baseUrl = pbUrlInput.value.trim();
-                const recordId = pbRecordIdInput.value.trim();
+            async function fetchPocketBaseRecord(recordId) {
+                const baseUrl = POCKETBASE_URL;
 
-                if (!baseUrl || !recordId) {
-                    pbStatus.textContent = 'Enter PocketBase URL and Record ID.';
+                if (!recordId) {
+                    pbStatus.textContent = 'No record selected.';
                     return;
                 }
 
@@ -576,22 +658,21 @@
                     questionsTextarea.value = text;
                     pbStatus.textContent = `Loaded ${parsed.length} questions.`;
 
-                    // Save to localStorage so the game can use it
+                    // Update in-memory question bank (do not persist to localStorage)
                     gameState.fullQuestionBank = parsed;
-                    localStorage.setItem('classroomGameQuestions', JSON.stringify(parsed));
                 } catch (err) {
                     console.error(err);
                     pbStatus.textContent = 'Error fetching record: ' + (err.message || err);
                 }
             }
 
-            fetchPbBtn.addEventListener('click', fetchPocketBaseRecord);
+            // fetchPbBtn removed; selection of dropdown will trigger fetch
 
             /**
              * Loads the list of records from the `teamGames` collection and populates the dropdown.
              */
             async function loadPocketBaseList() {
-                const baseUrl = pbUrlInput.value.trim() || 'https://blog.teacherjake.com';
+                const baseUrl = POCKETBASE_URL;
                 pbStatus.textContent = 'Loading list...';
 
                 try {
@@ -622,9 +703,8 @@
             pbRecordSelect.addEventListener('change', (e) => {
                 const id = e.target.value;
                 if (id) {
-                    pbRecordIdInput.value = id;
                     // Auto-fetch the selected record
-                    fetchPocketBaseRecord();
+                    fetchPocketBaseRecord(id);
                 }
             });
 
