@@ -7,8 +7,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Compiled Tailwind CSS (built with tailwindcss CLI) -->
     <link rel="stylesheet" href="./dist/styles.css">
-    <!-- PocketBase client (UMD) - using local copy from node_modules -->
     <script src="./node_modules/pocketbase/dist/pocketbase.umd.js"></script>
+    
+    <!-- Production Scripts -->
+    <!-- <link rel="stylesheet" href="https://blog.teacherjake.com/apps/scripts/tj-team-game/styles.css">
+    <script src="https://blog.teacherjake.com/apps/scripts/tj-team-game/node_modules/pocketbase/dist/pocketbase.umd.js"></script> -->
 </head>
 <body class="text-gray-800">
 
@@ -105,9 +108,9 @@
             </div>
             <textarea id="questions-textarea" class="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400" placeholder="Example: What color is the sky? | Blue"></textarea>
             <div class="flex justify-end gap-4 mt-6">
-                 <button id="cancel-edit-btn" class="px-6 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600">Cancel</button>
-                 <button id="save-questions-btn" class="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700">Save and Restart</button>
-                 <button id="save-to-pb-btn" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Save to PocketBase</button>
+                 <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600">Cancel</button>
+                 <button id="save-questions-btn" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700">Open</button>
+                 <button id="save-to-pb-btn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700">Save</button>
             </div>
         </div>
     </div>
