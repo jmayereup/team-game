@@ -91,6 +91,7 @@
             <p class="text-center text-gray-500 mb-6">Add one question and its answer on each line, separated by a pipe character `|`.</p>
             <div class="flex gap-4 mb-4">
                 <button id="load-pocketbase-list-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700">Load list</button>
+                <button id="create-new-btn" class="px-4 py-2 bg-yellow-500 text-white rounded-lg shadow-md hover:bg-yellow-600">Create New</button>
                 <div id="pb-auth-controls" class="flex items-center gap-2">
                     <button id="pb-login-btn" class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm">Login (Google)</button>
                     <button id="pb-logout-btn" class="px-3 py-1 bg-gray-400 text-white rounded-md text-sm hidden">Logout</button>
@@ -466,6 +467,7 @@
             const pbStatus = document.getElementById('pb-status');
             const loadListBtn = document.getElementById('load-pocketbase-list-btn');
             const pbRecordSelect = document.getElementById('pb-record-select');
+            const createNewBtn = document.getElementById('create-new-btn');
             const POCKETBASE_URL = 'https://blog.teacherjake.com';
             const pbLoginBtn = document.getElementById('pb-login-btn');
             const pbLogoutBtn = document.getElementById('pb-logout-btn');
@@ -474,6 +476,9 @@
 
             // PocketBase client instance
             const pb = new PocketBase(POCKETBASE_URL);
+
+            // Tracks whether the user explicitly wants to create a new record
+            let creatingNew = false;
 
             function updateAuthUI() {
                 if (pb.authStore.isValid) {
@@ -533,14 +538,18 @@
                     const selectedId = pbRecordSelect.value;
 
                     let res;
-                    if (selectedId) {
-                        // Update
+                    // If creatingNew flag is set, always create. Otherwise, update selected record if any.
+                    if (creatingNew) {
+                        res = await pb.collection(collection).create(payload);
+                        pbStatus.textContent = 'Created new question bank.';
+                        creatingNew = false; // reset
+                    } else if (selectedId) {
                         res = await pb.collection(collection).update(selectedId, payload);
                         pbStatus.textContent = 'Updated existing question bank.';
                     } else {
-                        // Create
-                        res = await pb.collection(collection).create(payload);
-                        pbStatus.textContent = 'Created new question bank.';
+                        // No selection and not explicitly creating — require user to click Create New first
+                        pbStatus.textContent = 'Select a record or click Create New to create one.';
+                        return;
                     }
 
                     // Refresh list and select the saved record
@@ -629,13 +638,15 @@
                         return;
                     }
 
-                    // Convert to textarea format and set
+                    // Convert to textarea format and set, and populate the title field
                     const text = parsed.map(q => `${q.question} | ${q.answer}`).join('\n');
                     questionsTextarea.value = text;
+                    pbBankTitle.value = record.title || '';
                     pbStatus.textContent = `Loaded ${parsed.length} questions.`;
 
                     // Update in-memory question bank (do not persist to localStorage)
                     gameState.fullQuestionBank = parsed;
+                    creatingNew = false; // loaded an existing record
                 } catch (err) {
                     console.error(err);
                     pbStatus.textContent = 'Error fetching record: ' + (err.message || err);
@@ -657,9 +668,13 @@
                     const collection = 'teamGames';
                     const res = await pb.collection(collection).getFullList(200, { sort: '-created' });
 
-                    // Clear and populate
+                    // Clear and populate (sorted alphabetically by title)
                     pbRecordSelect.innerHTML = '<option value="">— Select a question bank —</option>';
-                    res.forEach(rec => {
+                    res.sort((a, b) => {
+                        const aTitle = (a.title || a.name || (a.questionbank && (typeof a.questionbank === 'string' ? a.questionbank.slice(0,40) : '')) || '').toString().toLowerCase();
+                        const bTitle = (b.title || b.name || (b.questionbank && (typeof b.questionbank === 'string' ? b.questionbank.slice(0,40) : '')) || '').toString().toLowerCase();
+                        return aTitle.localeCompare(bTitle);
+                    }).forEach(rec => {
                         const title = rec.title || rec.name || (rec.questionbank && (typeof rec.questionbank === 'string' ? rec.questionbank.slice(0,40) : 'Question Bank'));
                         const opt = document.createElement('option');
                         opt.value = rec.id;
@@ -675,6 +690,15 @@
             }
 
             loadListBtn.addEventListener('click', loadPocketBaseList);
+
+            createNewBtn.addEventListener('click', () => {
+                // Clear selection and title/textarea for a fresh entry
+                pbRecordSelect.value = '';
+                pbBankTitle.value = '';
+                questionsTextarea.value = '';
+                creatingNew = true;
+                pbStatus.textContent = 'Creating new question bank. Enter title and questions, then click Save.';
+            });
 
             pbRecordSelect.addEventListener('change', (e) => {
                 const id = e.target.value;
